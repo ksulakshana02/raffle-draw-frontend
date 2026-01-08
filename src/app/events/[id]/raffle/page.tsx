@@ -57,42 +57,76 @@ export default function RafflePage() {
 
     if (!authorized) {
         return (
-            <div className="min-h-screen bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-purple-950 to-black flex flex-col items-center justify-center p-4 relative overflow-hidden">
-                {/* Background Effects */}
-                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
+            <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
+                style={{
+                    background: "linear-gradient(135.01deg, #51B749 -1.51%, #253EA3 49.62%, #01B4EC 105.88%)"
+                }}
+            >
+                {/* Background Pattern */}
+                <div className="absolute inset-0 pointer-events-none">
+                    {[...Array(6)].map((_, i) => (
+                        <motion.div
+                            key={i}
+                            className="absolute opacity-20"
+                            initial={{
+                                x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000),
+                                y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1000),
+                                rotate: Math.random() * 360,
+                                scale: Math.random() * 0.5 + 0.5
+                            }}
+                            animate={{
+                                rotate: [0, 360],
+                                scale: [1, 1.2, 1],
+                                opacity: [0.1, 0.3, 0.1]
+                            }}
+                            transition={{
+                                duration: Math.random() * 10 + 10,
+                                repeat: Infinity,
+                                ease: "linear"
+                            }}
+                        >
+                            <Sparkles className="text-white w-12 h-12" />
+                        </motion.div>
+                    ))}
+                </div>
 
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className="relative z-10 w-full max-w-md"
                 >
-                    <div className="bg-black/30 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl">
+                    <div className="bg-white rounded-3xl shadow-2xl p-8 border border-white/20">
                         <div className="flex justify-center mb-6">
-                            <div className="p-4 bg-white/5 rounded-full ring-1 ring-white/20">
-                                <Lock className="w-8 h-8 text-white" />
+                            <div className="p-4 bg-blue-50 rounded-full">
+                                <Lock className="w-8 h-8 text-blue-600" />
                             </div>
                         </div>
 
-                        <h2 className="text-3xl font-bold mb-2 text-center text-white tracking-tight">Restricted Access</h2>
-                        <p className="text-white/50 text-center mb-8">Enter the event key to access the raffle.</p>
+                        <h2 className="text-3xl font-bold mb-2 text-center text-gray-800 tracking-tight" style={{ fontFamily: "Arial, sans-serif" }}>Restricted Access</h2>
+                        <p className="text-gray-500 text-center mb-8" style={{ fontFamily: "Arial, sans-serif" }}>Enter the event key to access the raffle.</p>
 
-                        <form onSubmit={handleLogin} className="space-y-4">
+                        <form onSubmit={handleLogin} className="space-y-6">
                             <div>
                                 <input
                                     type="text"
                                     value={inputKey}
                                     onChange={(e) => setInputKey(e.target.value)}
-                                    className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white placeholder-white/30 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-all text-center text-lg tracking-widest uppercase font-mono"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-center text-lg tracking-widest uppercase font-mono shadow-inner"
                                     placeholder="ENTER KEY"
                                 />
                             </div>
                             <button
                                 disabled={checking}
-                                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 rounded-xl hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                className="w-full font-bold py-4 rounded-full hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-white shadow-xl"
+                                style={{
+                                    background: "linear-gradient(90deg, #FDC700 0%, #FF6900 100%)",
+                                    fontFamily: "Arial, sans-serif",
+                                    fontSize: "20px"
+                                }}
                             >
                                 {checking ? "Verifying..." : (
                                     <>
-                                        ENTER <Sparkles className="w-5 h-5" />
+                                        ACCESS EVENT <Sparkles className="w-5 h-5" />
                                     </>
                                 )}
                             </button>

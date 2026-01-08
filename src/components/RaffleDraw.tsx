@@ -30,9 +30,22 @@ export function RaffleDraw({ eventId, eventName = "Grand Raffle Draw", participa
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [isCompleted, setIsCompleted] = useState(false);
 
+    // Magnetic Animation State
+    const [shuffleSpeed, setShuffleSpeed] = useState(150);
+    interface FloatingImage {
+        id: number;
+        participantIndex: number;
+        x: number;
+        y: number;
+        scale: number;
+        rotation: number;
+    }
+    const [floatingImages, setFloatingImages] = useState<FloatingImage[]>([]);
+    const [magnetizedImages, setMagnetizedImages] = useState<number[]>([]);
+
     // Refs for animation
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const speedRef = useRef(50);
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const autoProgressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const currentPrize = sortedPrizes[currentPrizeIndex];
@@ -46,13 +59,58 @@ export function RaffleDraw({ eventId, eventName = "Grand Raffle Draw", participa
         };
     }, []);
 
-    const shuffle = () => {
+    // Initialize floating images
+    useEffect(() => {
         if (eligibleParticipants.length === 0) return;
 
-        setSelectedIndex((prev) => (prev + 1) % eligibleParticipants.length);
-        speedRef.current = Math.min(speedRef.current * 1.05, 500);
-        timeoutRef.current = setTimeout(shuffle, speedRef.current);
-    };
+        // Create 100 floating images positioned randomly around the screen
+        const imageCount = 100;
+        const newFloatingImages: FloatingImage[] = [];
+        const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1000;
+        const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+
+        for (let i = 0; i < imageCount; i++) {
+            const participantIndex = i % eligibleParticipants.length;
+            newFloatingImages.push({
+                id: i,
+                participantIndex,
+                x: Math.random() * windowWidth - windowWidth / 2,
+                y: Math.random() * windowHeight - windowHeight / 2,
+                scale: Math.random() * 0.5 + 0.5,
+                rotation: Math.random() * 360,
+            });
+        }
+
+        setFloatingImages(newFloatingImages);
+        setMagnetizedImages([]);
+    }, [eligibleParticipants.length, participants.length]);
+
+    // Magnetic Animation Loop
+    useEffect(() => {
+        if (isAnimating && eligibleParticipants.length > 0) {
+            intervalRef.current = setInterval(() => {
+                // Change which image is being shown in the placeholder
+                setSelectedIndex((prev) => (prev + 1) % eligibleParticipants.length);
+
+                // Randomly magnetize images to the center (Stronger force: multiple at once)
+                setMagnetizedImages((prev) => {
+                    const newMagnetized = [...prev];
+                    // Attract 3 images at a time for stronger effect
+                    for (let i = 0; i < 3; i++) {
+                        const randomImageId = Math.floor(Math.random() * floatingImages.length);
+                        if (!newMagnetized.includes(randomImageId)) {
+                            newMagnetized.push(randomImageId);
+                        }
+                    }
+                    return newMagnetized.slice(-15); // Keep last 15 visible in the center pile
+                });
+            }, shuffleSpeed);
+
+            return () => {
+                if (intervalRef.current) clearInterval(intervalRef.current);
+            };
+        }
+    }, [isAnimating, shuffleSpeed, floatingImages.length, eligibleParticipants.length]);
 
     const handleStartDraw = () => {
         if (eligibleParticipants.length === 0) {
@@ -62,17 +120,25 @@ export function RaffleDraw({ eventId, eventName = "Grand Raffle Draw", participa
 
         setIsAnimating(true);
         setWinner(null);
-        speedRef.current = 50;
+        setShuffleSpeed(400); // Much slower start (was 200) to ensure visibility
 
-        // Start shuffling
-        shuffle();
+        // Gentler slow down logic
+        const slowDownIntervals = [
+            { time: 2000, speed: 500 },
+            { time: 4000, speed: 600 },
+            { time: 6000, speed: 800 },
+        ];
 
-        // Duration of the spin (3 seconds as per new design preference, originally 5s)
-        const duration = 3000;
+        slowDownIntervals.forEach(({ time, speed }) => {
+            setTimeout(() => setShuffleSpeed(speed), time);
+        });
+
+        // Duration of the spin (Increased to 8 seconds)
+        const duration = 8000;
 
         // Stop logic
         setTimeout(() => {
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            if (intervalRef.current) clearInterval(intervalRef.current);
             setIsAnimating(false);
 
             // Pick Winner from eligible participants only
@@ -427,78 +493,312 @@ export function RaffleDraw({ eventId, eventName = "Grand Raffle Draw", participa
                 </motion.div>
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col items-center justify-center relative min-h-[350px]">
+                <div className="flex-1 flex flex-col items-center justify-center relative min-h-[500px]">
 
-                    {/* Winner Display (Overlay) */}
+                    {/* Floating Images Layer (Only visible when animating) */}
                     <AnimatePresence>
-                        {winner && !isAnimating && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.5 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="absolute inset-0 z-50 flex items-center justify-center items-center"
-                            >
-                                {/* Winner Card */}
-                                <div className="bg-white rounded-[24px] shadow-2xl p-12 max-w-4xl w-full relative">
-                                    {/* Rank Badge */}
-                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                        <div className="px-12 py-3 rounded-full shadow-lg flex items-center gap-3"
-                                            style={{
-                                                background: "linear-gradient(90deg, #FF8904 0%, #F54900 100%)",
+                        {isAnimating && (
+                            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                                {floatingImages.map((floatingImage) => {
+                                    const isMagnetized = magnetizedImages.includes(floatingImage.id);
+                                    // Wrap index safely
+                                    const pIndex = floatingImage.participantIndex % eligibleParticipants.length;
+                                    const participant = eligibleParticipants[pIndex];
+                                    if (!participant) return null;
+
+                                    return (
+                                        <motion.div
+                                            key={floatingImage.id}
+                                            className="absolute top-1/2 left-1/2"
+                                            initial={{ x: floatingImage.x, y: floatingImage.y, scale: floatingImage.scale, rotate: floatingImage.rotation }}
+                                            animate={{
+                                                x: isMagnetized ? 0 : [floatingImage.x, floatingImage.x + Math.random() * 60 - 30, floatingImage.x],
+                                                y: isMagnetized ? 0 : [floatingImage.y, floatingImage.y + Math.random() * 60 - 30, floatingImage.y],
+                                                scale: isMagnetized ? 0 : floatingImage.scale,
+                                                rotate: isMagnetized ? 720 : [floatingImage.rotation, floatingImage.rotation + 15, floatingImage.rotation - 15, floatingImage.rotation],
+                                                opacity: isMagnetized ? 0 : 0.6,
+                                            }}
+                                            transition={{
+                                                duration: isMagnetized ? 0.8 : 3 + Math.random() * 2, // Smoother snap (0.7s)
+                                                ease: "easeInOut",
                                             }}
                                         >
-                                            <Trophy className="text-white w-8 h-8" />
-                                            <span className="text-white font-bold text-3xl font-arial">
+                                            <div className="bg-white/30 backdrop-blur-sm rounded-xl p-1 shadow-lg w-16 h-16 overflow-hidden">
+                                                <img src={getImageUrl(participant.photoUrl) || `https://ui-avatars.com/api/?name=${participant.name}`}
+                                                    alt="p" className="w-full h-full object-cover rounded-lg" />
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Central Magnet / Winner Reveal */}
+                    <div className="relative z-20">
+                        {isAnimating ? (
+                            <div className="relative">
+                                {/* Magnetic Rings */}
+                                {[1, 2, 3].map((ring) => (
+                                    <motion.div key={ring} className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-yellow-400/30"
+                                        animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                                        transition={{ duration: 2, repeat: Infinity, delay: ring * 0.5, ease: "easeOut" }}
+                                        style={{ width: `${300 + ring * 60}px`, height: `${300 + ring * 60}px` }}
+                                    />
+                                ))}
+
+                                {/* Central Shuffling Card */}
+                                <motion.div animate={{ boxShadow: ["0 0 30px rgba(250, 204, 21, 0.5)", "0 0 60px rgba(250, 204, 21, 0.8)", "0 0 30px rgba(250, 204, 21, 0.5)"] }}
+                                    transition={{ duration: 1.5, repeat: Infinity }}
+                                    className="relative bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 rounded-3xl p-6 shadow-2xl">
+
+                                    {/* Sparkles around magnet */}
+                                    {[0, 1, 2, 3].map((sparkle) => (
+                                        <motion.div key={sparkle} className="absolute"
+                                            style={{
+                                                top: sparkle === 0 ? "-20px" : sparkle === 1 ? "50%" : sparkle === 2 ? "calc(100% + 20px)" : "50%",
+                                                left: sparkle === 0 ? "50%" : sparkle === 1 ? "-20px" : sparkle === 2 ? "50%" : "calc(100% + 20px)",
+                                                transform: "translate(-50%, -50%)",
+                                            }}
+                                            animate={{ scale: [1, 1.5, 1], rotate: [0, 180, 360] }}
+                                            transition={{ duration: 1, repeat: Infinity, delay: sparkle * 0.25 }}
+                                        >
+                                            <Sparkles className="w-10 h-10 text-white fill-white drop-shadow-lg" />
+                                        </motion.div>
+                                    ))}
+
+                                    <div className="w-64 h-64 bg-white/20 rounded-2xl backdrop-blur-sm border-4 border-white shadow-inner overflow-hidden relative">
+                                        {eligibleParticipants.length > 0 && (
+                                            <motion.div
+                                                key={selectedIndex}
+                                                initial={{ scale: 0, rotate: -180 }}
+                                                animate={{ scale: 1, rotate: 0 }}
+                                                transition={{ duration: 0.3, ease: "easeOut" }}
+                                                className="w-full h-full relative"
+                                            >
+                                                <img src={getImageUrl(eligibleParticipants[selectedIndex % eligibleParticipants.length]?.photoUrl) || ""}
+                                                    alt="shuffle" className="w-full h-full object-cover" />
+                                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 text-center text-white font-bold truncate">
+                                                    {eligibleParticipants[selectedIndex % eligibleParticipants.length]?.name || "..."}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </div>
+                                    <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 1, repeat: Infinity }}
+                                        className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-gradient-to-br from-orange-400 to-red-500 rounded-full p-3 shadow-xl">
+                                        <Trophy className="w-8 h-8 text-white" />
+                                    </motion.div>
+                                </motion.div>
+                            </div>
+                        ) : winner ? (
+                            /* WINNER REVEAL UI */
+                            <AnimatePresence>
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.5 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="z-50 flex items-center justify-center pointer-events-auto"
+                                >
+                                    {/* Winner Card Container */}
+                                    <div
+                                        className="bg-white relative flex flex-col items-center"
+                                        style={{
+                                            width: "1152px",
+                                            height: "536px",
+                                            maxWidth: "90vw",
+                                            borderRadius: "24px",
+                                            boxShadow: "0px 25px 50px -12px rgba(0, 0, 0, 0.25)"
+                                        }}
+                                    >
+                                        {/* Rank Badge */}
+                                        <div
+                                            className="absolute flex items-center justify-center gap-3 px-12 py-4 rounded-full"
+                                            style={{
+                                                top: "48px",
+                                                height: "72px",
+                                                background: "linear-gradient(90deg, #FF8904 0%, #F54900 100%)",
+                                                boxShadow: "0px 20px 25px -5px rgba(0, 0, 0, 0.1), 0px 8px 10px -6px rgba(0, 0, 0, 0.1)"
+                                            }}
+                                        >
+                                            <Trophy className="text-white w-10 h-10" />
+                                            <span
+                                                className="text-white font-bold"
+                                                style={{
+                                                    fontSize: "36px",
+                                                    fontFamily: "Arial, sans-serif"
+                                                }}
+                                            >
                                                 {getPlaceText(currentPrize.rank)}
                                             </span>
                                         </div>
-                                    </div>
 
-                                    <div className="flex flex-col md:flex-row items-stretch justify-center gap-16 mt-8">
-                                        {/* Winner Section */}
-                                        <div className="flex flex-col items-center">
-                                            <div className="relative mb-6">
-                                                <div className="absolute inset-0 bg-gradient-to-r from-[#51B749] to-[#01B4EC] rounded-full blur-md opacity-50"></div>
-                                                <div className="w-56 h-56 rounded-full border-[8px] border-white shadow-xl overflow-hidden relative z-10 bg-gray-100">
-                                                    <img
-                                                        src={getImageUrl(winner.photoUrl) || `https://ui-avatars.com/api/?name=${winner.name}`}
-                                                        alt={winner.name}
-                                                        className="w-full h-full object-cover"
+                                        {/* Content Container (Winner + Prize) */}
+                                        <div
+                                            className="absolute flex items-center justify-center gap-16"
+                                            style={{
+                                                top: "173px",
+                                                width: "100%",
+                                                padding: "0 48px"
+                                            }}
+                                        >
+                                            {/* Winner Section */}
+                                            <div className="flex flex-col items-center gap-6">
+                                                {/* Winner Photo Container */}
+                                                <div className="relative" style={{ width: "216px", height: "192px" }}>
+                                                    {/* Glow Effect */}
+                                                    <div
+                                                        className="absolute rounded-full"
+                                                        style={{
+                                                            width: "217px",
+                                                            height: "213px",
+                                                            left: "-53px",
+                                                            top: "-53px",
+                                                            background: "linear-gradient(112.06deg, #51B749 24.61%, #01B4EC 81.46%)",
+                                                            opacity: 0.2,
+                                                            filter: "blur(16px)",
+                                                            transform: "rotate(34.18deg)"
+                                                        }}
                                                     />
+                                                    {/* Winner Image */}
+                                                    <div
+                                                        className="absolute rounded-full overflow-hidden bg-white"
+                                                        style={{
+                                                            width: "192px",
+                                                            height: "192px",
+                                                            border: "8px solid #FFFFFF",
+                                                            boxShadow: "0px 25px 50px -12px rgba(0, 0, 0, 0.25)"
+                                                        }}
+                                                    >
+                                                        <img
+                                                            src={getImageUrl(winner.photoUrl) || `https://ui-avatars.com/api/?name=${winner.name}`}
+                                                            alt={winner.name}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-center" style={{ width: "216px" }}>
+                                                    <h3
+                                                        className="font-bold text-[#1E2939]"
+                                                        style={{
+                                                            fontSize: "36px",
+                                                            lineHeight: "40px",
+                                                            fontFamily: "Arial, sans-serif"
+                                                        }}
+                                                    >
+                                                        {winner.name}
+                                                    </h3>
+                                                    <p
+                                                        className="text-[#4A5565] mt-2"
+                                                        style={{
+                                                            fontSize: "24px",
+                                                            fontFamily: "Arial, sans-serif"
+                                                        }}
+                                                    >
+                                                        Winner!
+                                                    </p>
                                                 </div>
                                             </div>
-                                            <h3 className="text-4xl font-bold text-[#1E2939] mb-1 font-arial">{winner.name}</h3>
-                                            <p className="text-[#4A5565] text-xl font-arial">Winner!</p>
-                                        </div>
 
-                                        {/* Prize Section */}
-                                        <div className="flex flex-col items-center">
-                                            <div className="relative mb-6">
-                                                <Gift className="absolute -right-4 -top-4 w-12 h-12 text-[#F6339A] z-20 animate-bounce" />
-                                                <div className="w-56 h-56 rounded-2xl bg-white border-4 border-[#FCCEE8] shadow-[0_25px_50px_-12px_rgba(25,50,211,0.25)] flex items-center justify-center p-4 relative z-10">
-                                                    <img
-                                                        src={getImageUrl(currentPrize.imageUrl)}
-                                                        alt={currentPrize.name}
-                                                        className="w-full h-full object-contain"
+                                            {/* Prize Section */}
+                                            <div className="flex flex-col items-center gap-6">
+                                                {/* Prize Image Container */}
+                                                <div className="relative" style={{ width: "192px", height: "192px" }}>
+                                                    {/* Glow Effect */}
+                                                    <div
+                                                        className="absolute"
+                                                        style={{
+                                                            width: "192px",
+                                                            height: "194px",
+                                                            background: "linear-gradient(112.06deg, #51B749 24.61%, #01B4EC 81.46%)",
+                                                            opacity: 0.4,
+                                                            filter: "blur(16px)"
+                                                        }}
                                                     />
+
+                                                    {/* Gift Icon Overlay */}
+                                                    <Gift
+                                                        className="absolute z-20"
+                                                        style={{
+                                                            width: "57px",
+                                                            height: "57px",
+                                                            left: "140px",
+                                                            top: "-16px",
+                                                            color: "#F6339A",
+                                                            transform: "rotate(-12deg)"
+                                                        }}
+                                                    />
+
+                                                    {/* Prize Image */}
+                                                    <div
+                                                        className="absolute rounded-2xl overflow-hidden bg-white flex items-center justify-center"
+                                                        style={{
+                                                            width: "192px",
+                                                            height: "192px",
+                                                            border: "4px solid #FCCEE8",
+                                                            boxShadow: "0px 25px 50px -12px rgba(25, 50, 211, 0.25)",
+                                                            borderRadius: "16px"
+                                                        }}
+                                                    >
+                                                        <img
+                                                            src={getImageUrl(currentPrize.imageUrl)}
+                                                            alt={currentPrize.name}
+                                                            className="w-full h-full object-contain p-4"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-center" style={{ width: "192px" }}>
+                                                    <h3
+                                                        className="font-bold text-[#1E2939]"
+                                                        style={{
+                                                            fontSize: "30px",
+                                                            lineHeight: "36px",
+                                                            fontFamily: "Arial, sans-serif"
+                                                        }}
+                                                    >
+                                                        {currentPrize.name}
+                                                    </h3>
+                                                    <p
+                                                        className="text-[#4A5565] mt-2"
+                                                        style={{
+                                                            fontSize: "20px",
+                                                            fontFamily: "Arial, sans-serif"
+                                                        }}
+                                                    >
+                                                        Prize
+                                                    </p>
                                                 </div>
                                             </div>
-                                            <h3 className="text-3xl font-bold text-white">{currentPrize.name}</h3>
-                                            <p className="text-[#4A5565] text-lg font-arial">Prize</p>
+                                        </div>
+
+                                        {/* Action Button */}
+                                        <div className="absolute" style={{ top: "852px" }}>
+                                            {/* Note: In user design top is 852px which is outside 536px container relative to full page 
+                                                But here we want it relative to the container or just below it. 
+                                                The user design screenshot shows the button clearly separate below.
+                                                Let's place it outside this white container relative to the screen center 
+                                                OR append it at the bottom with spacing. 
+                                                Wait, looking at the user image, the "Next Draw" button is OUTSIDE the white card.
+                                            */}
                                         </div>
                                     </div>
 
-                                    {/* Action Button */}
-                                    <div className="mt-12 text-center">
+                                    {/* Action Button - Outside the white card */}
+                                    <div className="absolute" style={{ top: "calc(50% + 268px + 40px)" }}>
+                                        {/* 536px/2 = 268px + spacing */}
                                         {currentPrizeIndex >= sortedPrizes.length - 1 ? (
                                             <motion.button
                                                 whileHover={{ scale: 1.05 }}
                                                 whileTap={{ scale: 0.95 }}
                                                 onClick={() => setIsCompleted(true)}
-                                                className="px-20 py-6 text-white font-bold rounded-full shadow-2xl uppercase tracking-wider"
+                                                className="text-white font-bold rounded-full uppercase flex items-center justify-center"
                                                 style={{
-                                                    background: "linear-gradient(90deg, #00C853 0%, #64DD17 100%)", // Green for DONE
+                                                    width: "338px",
+                                                    height: "84px",
+                                                    background: "linear-gradient(90deg, #00C853 0%, #64DD17 100%)",
                                                     fontSize: "30px",
-                                                    fontFamily: "Arial, sans-serif"
+                                                    fontFamily: "Arial, sans-serif",
+                                                    boxShadow: "0px 25px 50px -12px rgba(0, 0, 0, 0.25)"
                                                 }}
                                             >
                                                 DONE
@@ -508,62 +808,32 @@ export function RaffleDraw({ eventId, eventName = "Grand Raffle Draw", participa
                                                 whileHover={{ scale: 1.05 }}
                                                 whileTap={{ scale: 0.95 }}
                                                 onClick={handleNextPrize}
-                                                className="px-20 py-6 text-white font-bold rounded-full shadow-2xl uppercase tracking-wider"
+                                                className="text-white font-bold rounded-full uppercase flex items-center justify-center"
                                                 style={{
+                                                    width: "338px",
+                                                    height: "84px",
                                                     background: "linear-gradient(90deg, #FDC700 0%, #FF6900 100%)",
                                                     fontSize: "30px",
-                                                    fontFamily: "Arial, sans-serif"
+                                                    fontFamily: "Arial, sans-serif",
+                                                    boxShadow: "0px 25px 50px -12px rgba(0, 0, 0, 0.25)"
                                                 }}
                                             >
                                                 NEXT DRAW
                                             </motion.button>
                                         )}
                                     </div>
-                                </div>
-                            </motion.div>
+
+                                </motion.div>
+                            </AnimatePresence>
+                        ) : (
+                            /* IDLE STATE: MAGNET PLACEHOLDER STATIC or START BUTTON AREA */
+                            <div className="text-center mt-12">
+                                <p className="text-white/80 text-xl mb-8">Ready to draw winner for <span className="text-yellow-400 font-bold">{getPlaceText(currentPrize.rank)}</span></p>
+                            </div>
                         )}
-                    </AnimatePresence>
-
-                    {/* Participants Grid - Always visible initially, fades when winner shown */}
-                    <motion.div
-                        animate={{ opacity: (winner && !isAnimating) ? 0.1 : 1, filter: (winner && !isAnimating) ? "blur(10px)" : "blur(0px)" }}
-                        transition={{ duration: 0.5 }}
-                        className="w-full"
-                    >
-                        <div className="grid grid-cols-5 gap-6">
-                            {/* We show a fixed number of slots or eligible participants */}
-                            {eligibleParticipants.slice(0, 10).map((participant, index) => {
-                                // Determine if this card is currently 'active' in the shuffle animation
-                                const isActive = isAnimating && (selectedIndex % 10 === index);
-
-                                return (
-                                    <motion.div
-                                        key={participant.id}
-                                        className={`relative group rounded-2xl overflow-hidden backdrop-blur-md transition-all duration-200 border-2 ${isActive ? 'border-yellow-400 bg-yellow-400/20 scale-105 z-10 shadow-[0_0_30px_rgba(253,199,0,0.5)]' : 'border-white/20 bg-white/10 hover:bg-white/20'}`}
-                                        style={{ aspectRatio: "0.8" }}
-                                    >
-                                        <div className="absolute inset-0 p-3 flex flex-col items-center">
-                                            <div className="w-full flex-1 rounded-xl overflow-hidden mb-3 bg-black/20 relative">
-                                                <img
-                                                    src={getImageUrl(participant.photoUrl) || `https://ui-avatars.com/api/?name=${participant.name}`}
-                                                    alt={participant.name}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                            <div className={`w-full py-2 rounded-lg text-center ${isActive ? 'bg-yellow-400' : 'bg-white/20'}`}>
-                                                <p className={`font-bold text-sm truncate px-2 ${isActive ? 'text-black' : 'text-white'}`}>
-                                                    {participant.name}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                    </motion.div>
+                    </div>
                 </div>
 
-                {/* Control Bar */}
                 <div className="h-32 flex items-center justify-center">
                     {!winner && (
                         <motion.button

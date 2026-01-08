@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/api";
 import { Event, User } from "@/types";
-import { QrCode, UserPlus, Check, X, Gift as GiftIcon, Trash2 } from "lucide-react";
+import { QrCode, UserPlus, Check, X, Gift as GiftIcon, Trash2, Calendar } from "lucide-react";
 import QrScannerModal from "@/components/QrScannerModal";
 import Link from 'next/link';
 import { getImageUrl } from "@/lib/utils";
@@ -106,6 +106,17 @@ export default function EventDetailsPage() {
         }
     };
 
+    const handleDeleteGift = async (giftId: number) => {
+        if (!confirm("Are you sure you want to delete this prize?")) return;
+        try {
+            await api.delete(`/events/${eventId}/gifts/${giftId}`);
+            fetchEventDetails();
+        } catch (error) {
+            console.error(error);
+            alert("Failed to delete prize");
+        }
+    };
+
     const handleScan = async (scannedId: string | null) => {
         if (scannedId) {
             const userId = parseInt(scannedId);
@@ -118,66 +129,79 @@ export default function EventDetailsPage() {
         }
     };
 
-    if (!event) return <div className="p-8">Loading Event...</div>;
+    if (!event) return <div className="p-8 text-center text-gray-500">Loading Event...</div>;
 
     const giftsByRank = (rank: number) => event.gifts?.find(g => g.rank === rank);
 
     return (
-        <div className="p-8">
-            <header className="mb-8 border-b pb-8">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h1 className="text-4xl font-bold text-gray-900 mb-2">{event.title}</h1>
-                        <p className="text-gray-500">Date: {new Date(event.date).toLocaleDateString()}</p>
-                        <p className="text-gray-500 font-mono mt-1">Enrollment Key: {event.enrollmentKey}</p>
+        <div className="p-6">
+            <header className="mb-8 border-b border-gray-100 pb-8 flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div>
+                    <h1 className="text-4xl font-bold text-gray-800 mb-2" style={{ fontFamily: "Arial, sans-serif" }}>{event.title}</h1>
+                    <div className="flex items-center gap-4 text-gray-500">
+                        <p className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {new Date(event.date).toLocaleDateString()}</p>
+                        <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                        <p className="font-mono bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-sm border border-blue-100">KEY: <strong>{event.enrollmentKey}</strong></p>
                     </div>
-                    <Link href={`/events/${event.id}/raffle`} target="_blank" className="px-6 py-3 bg-pink-600 text-white rounded-lg font-bold hover:bg-pink-700 shadow-lg transition-transform hover:scale-105">
-                        Launch Raffle Page &rarr;
-                    </Link>
                 </div>
+                <Link href={`/events/${event.id}/raffle`} target="_blank"
+                    className="px-6 py-3 bg-white text-blue-600 rounded-full font-bold hover:bg-blue-50 border border-blue-200 shadow-sm hover:shadow-md transition-all flex items-center gap-2"
+                >
+                    Launch Raffle Page &rarr;
+                </Link>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* GIFTS MANAGEMENT */}
                 <section>
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                            🎁 Prize Configuration
+                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2" style={{ fontFamily: "Arial, sans-serif" }}>
+                            Prize Configuration
                         </h2>
                         <button
                             onClick={() => setIsGiftModalOpen(true)}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"
+                            className="text-white px-5 py-2.5 rounded-full flex items-center gap-2 shadow-md hover:shadow-lg hover:scale-105 transition-all text-sm font-bold"
+                            style={{
+                                background: "linear-gradient(90deg, #FDC700 0%, #FF6900 100%)",
+                            }}
                         >
                             <GiftIcon className="w-4 h-4" />
                             Add Prize
                         </button>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {(event.gifts && event.gifts.length > 0) ? (
                             event.gifts.sort((a, b) => a.rank - b.rank).map((gift) => (
-                                <div key={gift.id} className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm border">
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white shadow-md ${gift.rank === 1 ? 'bg-yellow-500' :
+                                <div key={gift.id} className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 group hover:border-blue-200 transition-colors">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white shadow-md ${gift.rank === 1 ? 'bg-yellow-400' :
                                         gift.rank === 2 ? 'bg-gray-400' :
-                                            gift.rank === 3 ? 'bg-orange-500' : 'bg-slate-500'
+                                            gift.rank === 3 ? 'bg-orange-400' : 'bg-slate-400'
                                         }`}>
                                         #{gift.rank}
                                     </div>
                                     <div className="flex-1 flex gap-4 items-center">
-                                        <img src={getImageUrl(gift.imageUrl)} className="w-16 h-16 object-cover rounded-md border" />
+                                        <div className="w-16 h-16 rounded-xl bg-white p-1 border border-gray-100 shadow-sm overflow-hidden">
+                                            <img src={getImageUrl(gift.imageUrl)} className="w-full h-full object-cover rounded-lg" />
+                                        </div>
                                         <div>
-                                            <p className="font-bold text-lg">{gift.name}</p>
+                                            <p className="font-bold text-lg text-gray-900">{gift.name}</p>
                                             <p className="text-xs text-gray-400">ID: {gift.id}</p>
                                         </div>
                                     </div>
-                                    <button className="text-red-500 hover:text-red-700 p-2" title="Delete functionality pending">
-                                        <Trash2 className="w-4 h-4" />
+                                    <button
+                                        onClick={() => handleDeleteGift(gift.id)}
+                                        className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-all"
+                                        title="Delete Prize"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
                                     </button>
                                 </div>
                             ))
                         ) : (
-                            <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-gray-500">
-                                No prizes configured yet. Click "Add Prize" to start.
+                            <div className="text-center py-12 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 text-gray-400">
+                                <GiftIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                <p>No prizes configured yet.</p>
                             </div>
                         )}
                     </div>
@@ -186,79 +210,98 @@ export default function EventDetailsPage() {
                 {/* ATTENDANCE MANAGEMENT */}
                 <section>
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                            📝 Participation
+                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2" style={{ fontFamily: "Arial, sans-serif" }}>
+                            Participation
                         </h2>
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setIsAddModalOpen(true)}
-                                className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"
+                                className="text-white px-5 py-2.5 rounded-full flex items-center gap-2 shadow-md hover:shadow-lg hover:scale-105 transition-all text-sm font-bold"
+                                style={{
+                                    background: "linear-gradient(90deg, #FDC700 0%, #FF6900 100%)",
+                                }}
                             >
                                 <UserPlus className="w-4 h-4" />
                                 Add Users
                             </button>
                             <button
                                 onClick={() => setScanning(true)}
-                                className="bg-black text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-800"
+                                className="bg-gray-800 text-white px-4 py-2.5 rounded-full flex items-center gap-2 hover:bg-black shadow-md transition-all"
                             >
                                 <QrCode className="w-4 h-4" />
-                                Scan QR
                             </button>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow border h-[600px] overflow-y-auto">
-                        {participants.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500">
-                                No participants invited yet. Click "Add Users" to start.
-                            </div>
-                        ) : (
-                            participants.map((user: any) => {
-                                const isPresent = user.status === 'PRESENT';
-                                return (
-                                    <div key={user.id} className={`flex items-center justify-between p-4 border-b hover:bg-gray-50 ${isPresent ? 'bg-green-50' : ''}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                                                <img
-                                                    src={getImageUrl(user.photoUrl) || `https://ui-avatars.com/api/?name=${user.name}`}
-                                                    className="w-full h-full object-cover"
-                                                />
+                    <div className="bg-gray-50 rounded-3xl border border-gray-200 h-[600px] overflow-hidden flex flex-col">
+                        <div className="overflow-y-auto p-2 flex-1 space-y-2">
+                            {participants.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                                    <UserPlus className="w-12 h-12 mb-3 opacity-20" />
+                                    <p>No participants invited yet.</p>
+                                </div>
+                            ) : (
+                                participants.map((user: any) => {
+                                    const isPresent = user.status === 'PRESENT';
+                                    return (
+                                        <div key={user.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${isPresent ? 'bg-white border-green-200 shadow-sm' : 'bg-transparent border-transparent hover:bg-gray-100'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden ring-2 ring-white shadow-sm">
+                                                    <img
+                                                        src={getImageUrl(user.photoUrl) || `https://ui-avatars.com/api/?name=${user.name}`}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-gray-800 text-sm">{user.name}</p>
+                                                    <p className={`text-xs font-medium ${isPresent ? 'text-green-600' : 'text-gray-400'}`}>
+                                                        {user.status}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="font-bold text-gray-800">{user.name}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    Status: {user.status}
-                                                </p>
-                                            </div>
+                                            <button
+                                                onClick={() => toggleAttendance(user.id, !isPresent)}
+                                                className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-colors ${isPresent ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'}`}
+                                            >
+                                                {isPresent ? 'Present' : 'Mark Present'}
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => toggleAttendance(user.id, !isPresent)}
-                                            className={`px-4 py-1 rounded-full text-sm font-bold border transition-colors ${isPresent ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}
-                                        >
-                                            {isPresent ? 'Present' : 'Mark Present'}
-                                        </button>
-                                    </div>
-                                )
-                            })
-                        )}
+                                    )
+                                })
+                            )}
+                        </div>
                     </div>
                 </section>
             </div>
 
             {/* ADD PARTICIPANTS MODAL */}
             {isAddModalOpen && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg h-[80vh] flex flex-col">
-                        <div className="p-6 border-b flex justify-between items-center">
-                            <h2 className="text-xl font-bold">Add Participants</h2>
-                            <button onClick={() => setIsAddModalOpen(false)}><X className="w-6 h-6" /></button>
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg h-[80vh] flex flex-col border border-gray-100 overflow-hidden">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h2 className="text-xl font-bold text-gray-800">Add Participants</h2>
+                            <button onClick={() => setIsAddModalOpen(false)} className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 rounded-full transition-colors"><X className="w-5 h-5" /></button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4">
+                        <div className="flex-1 overflow-y-auto p-4 bg-gray-50/30">
                             {availableUsers.length === 0 ? (
-                                <p className="text-center text-gray-500">All users are already invited.</p>
+                                <p className="text-center text-gray-500 py-12">All users are already invited.</p>
                             ) : (
                                 <div className="space-y-2">
+                                    <div className="flex justify-end mb-4">
+                                        <button
+                                            onClick={() => {
+                                                if (selectedUserIds.size === availableUsers.length) {
+                                                    setSelectedUserIds(new Set());
+                                                } else {
+                                                    setSelectedUserIds(new Set(availableUsers.map(u => u.id)));
+                                                }
+                                            }}
+                                            className="text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline transition-all"
+                                        >
+                                            {selectedUserIds.size === availableUsers.length ? 'Deselect All' : 'Select All'}
+                                        </button>
+                                    </div>
                                     {availableUsers.map(user => {
                                         const isSelected = selectedUserIds.has(user.id);
                                         return (
@@ -270,9 +313,9 @@ export default function EventDetailsPage() {
                                                     else next.add(user.id);
                                                     setSelectedUserIds(next);
                                                 }}
-                                                className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${isSelected ? 'border-indigo-500 bg-indigo-50 shadow-md' : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}
+                                                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${isSelected ? 'border-blue-500 bg-blue-50/50 shadow-sm' : 'border-gray-200 bg-white hover:border-blue-300'}`}
                                             >
-                                                <div className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
+                                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-gray-50'}`}>
                                                     {isSelected && <Check className="w-3 h-3 text-white" />}
                                                 </div>
                                                 <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
@@ -281,7 +324,7 @@ export default function EventDetailsPage() {
                                                         className="w-full h-full object-cover"
                                                     />
                                                 </div>
-                                                <span className="font-medium">{user.name}</span>
+                                                <span className="font-medium text-gray-700">{user.name}</span>
                                             </div>
                                         )
                                     })}
@@ -289,12 +332,15 @@ export default function EventDetailsPage() {
                             )}
                         </div>
 
-                        <div className="p-6 border-t bg-gray-50 rounded-b-xl flex justify-between items-center">
+                        <div className="p-6 border-t border-gray-100 bg-white flex justify-between items-center">
                             <span className="font-bold text-gray-600">{selectedUserIds.size} Selected</span>
                             <button
                                 onClick={handleAddParticipants}
                                 disabled={selectedUserIds.size === 0 || isAddingParticipants}
-                                className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105"
+                                className="text-white px-6 py-2.5 rounded-xl font-bold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                                style={{
+                                    background: "linear-gradient(90deg, #FDC700 0%, #FF6900 100%)",
+                                }}
                             >
                                 {isAddingParticipants ? 'Adding...' : 'Add Selected'}
                             </button>
@@ -305,53 +351,61 @@ export default function EventDetailsPage() {
 
             {/* GIFT MODAL */}
             {isGiftModalOpen && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-                        <div className="flex justify-between items-center mb-6 border-b pb-4">
-                            <h2 className="text-xl font-bold">Add Prize</h2>
-                            <button onClick={() => setIsGiftModalOpen(false)}><X className="w-6 h-6" /></button>
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-gray-100 overflow-hidden">
+                        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
+                            <h2 className="text-xl font-bold text-gray-800">Add Prize</h2>
+                            <button onClick={() => setIsGiftModalOpen(false)} className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 rounded-full transition-colors"><X className="w-5 h-5" /></button>
                         </div>
                         <form onSubmit={(e) => {
                             handleAddGift(e).then(() => setIsGiftModalOpen(false));
-                        }} className="space-y-4">
+                        }} className="p-6 space-y-5">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Rank/Place</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Rank/Place</label>
                                 <input
                                     type="number"
                                     min="1"
                                     required
-                                    className="w-full border-2 border-gray-300 px-4 py-2.5 rounded-lg text-gray-900 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                                    className="w-full border border-gray-200 px-4 py-3 rounded-xl text-gray-900 bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                     value={giftForm.rank}
                                     onChange={e => setGiftForm({ ...giftForm, rank: e.target.value })}
                                     placeholder="1"
                                 />
-                                <p className="text-xs text-gray-500 mt-2">1 = 1st Place, 2 = 2nd Place, etc. Multiple gifts can have same rank.</p>
+                                <p className="text-xs text-gray-400 mt-2 ml-1">1 = 1st Place, 2 = 2nd Place, etc.</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Gift Name</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Gift Name</label>
                                 <input
                                     type="text"
                                     required
-                                    className="w-full border-2 border-gray-300 px-4 py-2.5 rounded-lg text-gray-900 bg-white placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                                    className="w-full border border-gray-200 px-4 py-3 rounded-xl text-gray-900 bg-gray-50 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                     value={giftForm.name}
                                     onChange={e => setGiftForm({ ...giftForm, name: e.target.value })}
                                     placeholder="e.g. Apple Watch Ultra"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Image URL</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Image URL</label>
                                 <input
                                     type="text"
                                     required
-                                    className="w-full border-2 border-gray-300 px-4 py-2.5 rounded-lg text-gray-900 bg-white placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                                    className="w-full border border-gray-200 px-4 py-3 rounded-xl text-gray-900 bg-gray-50 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                     value={giftForm.imageUrl}
                                     onChange={e => setGiftForm({ ...giftForm, imageUrl: e.target.value })}
                                     placeholder="https://example.com/image.jpg"
                                 />
                             </div>
-                            <button disabled={isGiftSubmitting} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-[1.02]">
-                                {isGiftSubmitting ? 'Adding...' : 'Add Gift'}
-                            </button>
+                            <div className="pt-2">
+                                <button
+                                    disabled={isGiftSubmitting}
+                                    className="w-full text-white font-bold py-3.5 rounded-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                                    style={{
+                                        background: "linear-gradient(90deg, #FDC700 0%, #FF6900 100%)",
+                                    }}
+                                >
+                                    {isGiftSubmitting ? 'Adding...' : 'Add Gift'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>

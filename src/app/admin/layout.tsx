@@ -32,41 +32,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const isLoginPage = pathname === '/admin/login';
 
     if (isLoginPage) {
-        return <div className="min-h-screen bg-gray-100">{children}</div>;
+        return <div className="min-h-screen">{children}</div>;
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 flex">
+        <div className="h-screen w-full flex overflow-hidden fixed inset-0"
+            style={{
+                background: "linear-gradient(135.01deg, #51B749 -1.51%, #253EA3 49.62%, #01B4EC 105.88%)"
+            }}
+        >
             {/* Sidebar */}
-            <aside className="w-64 bg-indigo-900 text-white flex flex-col">
-                <div className="p-6 border-b border-indigo-800">
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
+            <aside className="w-64 bg-black/20 backdrop-blur-xl border-r border-white/10 text-white flex flex-col h-full shrink-0">
+                <div className="p-6 border-b border-white/10 shrink-0">
+                    <h1 className="text-2xl font-bold flex items-center gap-2" style={{ fontFamily: "Arial, sans-serif" }}>
                         <LayoutDashboard className="w-8 h-8 text-yellow-500" />
                         Admin
                     </h1>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-2">
+                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
                     <Link
                         href="/admin/users"
-                        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 font-medium ${isActive('/admin/users') ? 'bg-indigo-700 text-white shadow-lg' : 'text-indigo-200 hover:bg-indigo-800 hover:text-white'}`}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/users') ? 'bg-white/20 text-white shadow-lg border border-white/10' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}
                     >
                         <Users className="w-5 h-5" />
                         Users
                     </Link>
                     <Link
                         href="/admin/events"
-                        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 font-medium ${isActive('/admin/events') ? 'bg-indigo-700 text-white shadow-lg' : 'text-indigo-200 hover:bg-indigo-800 hover:text-white'}`}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive('/admin/events') ? 'bg-white/20 text-white shadow-lg border border-white/10' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}
                     >
                         <Calendar className="w-5 h-5" />
                         Events
                     </Link>
                 </nav>
 
-                <div className="p-4 border-t border-indigo-800">
+                <div className="p-4 border-t border-white/10 shrink-0">
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-3 px-4 py-3 text-red-300 hover:bg-red-900/30 hover:text-red-200 w-full rounded-lg transition-all duration-200 font-medium"
+                        className="flex items-center gap-3 px-4 py-3 text-red-200 hover:bg-red-500/20 hover:text-red-100 w-full rounded-xl transition-all duration-200 font-medium"
                     >
                         <LogOut className="w-5 h-5" />
                         Logout
@@ -75,8 +79,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto">
-                {children}
+            <main className="flex-1 h-full overflow-hidden flex flex-col">
+                <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                    <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl min-h-full border border-white/20 overflow-hidden flex flex-col">
+                        {children}
+                    </div>
+                </div>
             </main>
         </div>
     );
